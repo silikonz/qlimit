@@ -39,52 +39,64 @@ static void qlimit_loadPreferences(void) {
 // ---- The actual control primitive ---------------------------------------
 
 static void qlimit_setChargeInhibited(BOOL inhibited) {
+    if (inhibited == _qlimitChargeInhibited) return;
+
     if (inhibited) {
-        if (_qlimitAssertionID == kIOPMNullAssertionID) {
-            IOPMAssertionCreateWithName(CFSTR("ChargeInhibit"), kIOPMAssertionLevelOn, CFSTR("ChargeInhibit"), &_qlimitAssertionID);
+        IOReturn result = IOPMAssertionCreateWithName(CFSTR("ChargeInhibit"),
+                                                       kIOPMAssertionLevelOn,
+                                                       CFSTR("QLimit active"),
+                                                       &_qlimitAssertionID);
+        if (result == kIOReturnSuccess) {
+            _qlimitChargeInhibited = YES;
+        } else {
+            _qlimitAssertionID = kIOPMNullAssertionID;
         }
-    } else if (_qlimitAssertionID != kIOPMNullAssertionID) {
-          IOPMAssertionRelease(_qlimitAssertionID);
-          _qlimitAssertionID = kIOPMNullAssertionID;
+    } else {
+        if (_qlimitAssertionID != kIOPMNullAssertionID) {
+            IOPMAssertionRelease(_qlimitAssertionID);
+            _qlimitAssertionID = kIOPMNullAssertionID;
+        }
+        _qlimitChargeInhibited = NO;
     }
-    _qlimitChargeInhibited = inhibited;
 }
 
 // ---- Decision logic ---------------------------------------------------------
 
 static void qlimit_evaluateChargingState(void) {
-    CFTypeRef blob = IOPSCopyPowerSourcesInfo();
-    if (!blob) return;
+    // 1. Match the kernel power source driver
+    CFDictionaryRef matching = IOServiceMatching("IOPMPowerSource");
+    if (!matching) return;
+    io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+    if (!service) return;
 
-    CFArrayRef list = IOPSCopyPowerSourcesList(blob);
-    if (!list) {
-        CFRelease(blob);
-        return;
-    }
+    // 2. Fetch ONLY the two required primitive properties
+    CFBooleanRef externalConnected = (CFBooleanRef)IORegistryEntryCreateCFProperty(
+        service, CFSTR("ExternalConnected"), kCFAllocatorDefault, 0);
+    CFNumberRef capNum = (CFNumberRef)IORegistryEntryCreateCFProperty(
+        service, CFSTR("CurrentCapacity"), kCFAllocatorDefault, 0);
 
-    if (CFArrayGetCount(list) > 0) {
-        CFDictionaryRef detail = IOPSGetPowerSourceDescription(blob, CFArrayGetValueAtIndex(list, 0));
-        if (detail) {
-            CFStringRef state = (CFStringRef)CFDictionaryGetValue(detail, CFSTR(kIOPSPowerSourceStateKey));
-            CFNumberRef capNum = (CFNumberRef)CFDictionaryGetValue(detail, CFSTR(kIOPSCurrentCapacityKey));
+    // Release service handle immediately
+    IOObjectRelease(service);
+
+    // 3. Evaluate logic
+    if (externalConnected && capNum) {
+        BOOL isPluggedIn = CFBooleanGetValue(externalConnected);
         
-            BOOL isPluggedIn = (state && CFStringCompare(state, CFSTR(kIOPSACPowerValue), 0) == kCFCompareEqualTo);
-            
-            int capacity = 0;
-            if (capNum) CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
+        int capacity = 0;
+        CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
 
-            if (!isPluggedIn) {
-                qlimit_setChargeInhibited(NO);
-            } else if (capacity >= _qlimitMaxChargingLevel) {
-                qlimit_setChargeInhibited(YES);
-            } else if (capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) {
-                qlimit_setChargeInhibited(NO);
-            }
+        if (!isPluggedIn) {
+            qlimit_setChargeInhibited(NO);
+        } else if (capacity >= _qlimitMaxChargingLevel) {
+            qlimit_setChargeInhibited(YES);
+        } else if (capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) {
+            qlimit_setChargeInhibited(NO);
         }
     }
 
-    CFRelease(list);
-    CFRelease(blob);
+    // 4. Memory cleanup
+    if (externalConnected) CFRelease(externalConnected);
+    if (capNum) CFRelease(capNum);
 }
 
 // ---- Callbacks ---------------------------------------------------------
@@ -126,6 +138,8 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
             CFRelease(runLoopSource);
         }
 
-        qlimit_evaluateChargingState();
+        dispatch_async(dispatch_get_main_queue(), ^{
+            qlimit_evaluateChargingState();
+        });
     }
 }
