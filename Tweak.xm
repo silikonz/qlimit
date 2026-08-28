@@ -61,38 +61,39 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
 // ---- Decision logic ---------------------------------------------------------
 
 static void qlimit_evaluateChargingState(void) {
-    CFTypeRef blob = IOPSCopyPowerSourcesInfo();
-    if (!blob) return;
+    // 1. Match the kernel power source driver node
+    CFDictionaryRef matching = IOServiceMatching("IOPMPowerSource");
+    io_service_t service = IOServiceGetMatchingService(kIOMainPortDefault, matching);
+    if (!service) return;
 
-    CFArrayRef list = IOPSCopyPowerSourcesList(blob);
-    if (!list) {
-        CFRelease(blob);
-        return;
-    }
+    // 2. Query ONLY the specific primitive properties directly from kernel memory
+    CFBooleanRef externalConnected = (CFBooleanRef)IORegistryEntryCreateCFProperty(
+        service, CFSTR(kIOPMPSExternalConnectedKey), kCFAllocatorDefault, 0);
+    CFNumberRef capNum = (CFNumberRef)IORegistryEntryCreateCFProperty(
+        service, CFSTR(kIOPMPSCurrentCapacityKey), kCFAllocatorDefault, 0);
 
-    if (CFArrayGetCount(list) > 0) {
-        CFDictionaryRef detail = IOPSGetPowerSourceDescription(blob, CFArrayGetValueAtIndex(list, 0));
-        if (detail) {
-            CFStringRef state = (CFStringRef)CFDictionaryGetValue(detail, CFSTR(kIOPSPowerSourceStateKey));
-            CFNumberRef capNum = (CFNumberRef)CFDictionaryGetValue(detail, CFSTR(kIOPSCurrentCapacityKey));
+    // Release the IOKit service handle immediately
+    IOObjectRelease(service);
 
-            BOOL isPluggedIn = (state && CFStringCompare(state, CFSTR(kIOPSACPowerValue), 0) == kCFCompareEqualTo);
-            
-            int capacity = 0;
-            if (capNum) CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
+    // 3. Process the charging state logic
+    if (externalConnected && capNum) {
+        BOOL isPluggedIn = CFBooleanGetValue(externalConnected);
+        
+        int capacity = 0;
+        CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
 
-            if (!isPluggedIn) {
-                qlimit_setChargeInhibited(NO);
-            } else if (capacity >= _qlimitMaxChargingLevel) {
-                qlimit_setChargeInhibited(YES);
-            } else if (capacity <= _qlimitMaxChargingLevel - _qlimitSailDepth) {
-                qlimit_setChargeInhibited(NO);
-            }
+        if (!isPluggedIn) {
+            qlimit_setChargeInhibited(NO);
+        } else if (capacity >= _qlimitMaxChargingLevel) {
+            qlimit_setChargeInhibited(YES);
+        } else if (capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) {
+            qlimit_setChargeInhibited(NO);
         }
     }
 
-    CFRelease(list);
-    CFRelease(blob);
+    // 4. Clean up primitive allocations
+    if (externalConnected) CFRelease(externalConnected);
+    if (capNum) CFRelease(capNum);
 }
 
 // ---- Callbacks ---------------------------------------------------------
