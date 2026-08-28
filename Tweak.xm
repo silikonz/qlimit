@@ -65,10 +65,10 @@ static void qlimit_evaluateChargingState(void) {
     if (CFArrayGetCount(list) > 0) {
         CFDictionaryRef detail = IOPSGetPowerSourceDescription(blob, CFArrayGetValueAtIndex(list, 0));
         if (detail) {
-            CFStringRef state = (CFStringRef)CFDictionaryGetValue(detail, kIOPSPowerSourceStateKey);
-            CFNumberRef capNum = (CFNumberRef)CFDictionaryGetValue(detail, kIOPSCurrentCapacityKey);
-
-            BOOL isPluggedIn = (state && CFStringCompare(state, kIOPSACPowerValue, 0) == kCFCompareEqualTo);
+            CFStringRef state = (CFStringRef)CFDictionaryGetValue(detail, CFSTR(kIOPSPowerSourceStateKey));
+            CFNumberRef capNum = (CFNumberRef)CFDictionaryGetValue(detail, CFSTR(kIOPSCurrentCapacityKey));
+        
+            BOOL isPluggedIn = (state && CFStringCompare(state, CFSTR(kIOPSACPowerValue), 0) == kCFCompareEqualTo);
             
             int capacity = 0;
             if (capNum) CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
