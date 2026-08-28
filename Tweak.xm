@@ -7,13 +7,18 @@
 
 #define kQLimitAppID                    CFSTR("me.qlimit")
 #define kQLimitPrefsUser                CFSTR("mobile")
-#define kQLimitPrefsKey                 CFSTR("MaxChargingLevel")
+#define kQLimitMaxLevelKey              CFSTR("MaxChargingLevel")
+#define kQLimitSailDepthKey             CFSTR("SailDepth")
 #define kQLimitPrefsChangedNotification "me.qlimit/prefschanged"
 #define kQLimitDefaultLevel             80
+#define kQLimitDefaultSailDepth         5   // mirrors AlDente's Sailing Mode: lets the battery buffer small
+                                             // draws for a while instead of topping up on every point drop,
+                                             // meaning fewer partial charge cycles
 
 // ---- State -------------------------------------------------------------
 
 static int _qlimitMaxChargingLevel = kQLimitDefaultLevel;
+static int _qlimitSailDepth = kQLimitDefaultSailDepth;
 static BOOL _qlimitChargeInhibited = NO;
 static IOPMAssertionID _qlimitAssertionID = kIOPMNullAssertionID;
 
@@ -25,10 +30,15 @@ static IOPMAssertionID _qlimitAssertionID = kIOPMNullAssertionID;
 // Root.plist's top-level "defaults" key - so we read it back the same way.
 // powerd doesn't run as `mobile`, so the user has to be named explicitly -
 // kCFPreferencesCurrentUser would resolve to powerd's own domain instead.
+static int qlimit_intPrefValue(CFStringRef key, int defaultValue) {
+    id value = (__bridge_transfer id)CFPreferencesCopyValue(key, kQLimitAppID, kQLimitPrefsUser, kCFPreferencesCurrentHost);
+    return value ? [value intValue] : defaultValue;
+}
+
 static void qlimit_loadPreferences(void) {
     CFPreferencesSynchronize(kQLimitAppID, kQLimitPrefsUser, kCFPreferencesCurrentHost);
-    id value = (__bridge_transfer id)CFPreferencesCopyValue(kQLimitPrefsKey, kQLimitAppID, kQLimitPrefsUser, kCFPreferencesCurrentHost);
-    _qlimitMaxChargingLevel = value ? [value intValue] : kQLimitDefaultLevel;
+    _qlimitMaxChargingLevel = qlimit_intPrefValue(kQLimitMaxLevelKey, kQLimitDefaultLevel);
+    _qlimitSailDepth = qlimit_intPrefValue(kQLimitSailDepthKey, kQLimitDefaultSailDepth);
 }
 
 // ---- Battery state ---------------------------------------------------------
@@ -76,11 +86,19 @@ static void qlimit_evaluateChargingState(void) {
     BOOL externalConnected = [info[@"ExternalConnected"] boolValue];
     int currentCapacity = [info[@"CurrentCapacity"] intValue];
 
-    if (externalConnected && currentCapacity >= _qlimitMaxChargingLevel) {
+    if (!externalConnected) {
+        qlimit_setChargeInhibited(NO);
+        return;
+    }
+
+    if (currentCapacity >= _qlimitMaxChargingLevel) {
         qlimit_setChargeInhibited(YES);
-    } else {
+    } else if (currentCapacity <= _qlimitMaxChargingLevel - _qlimitSailDepth) {
         qlimit_setChargeInhibited(NO);
     }
+    // else: within the sail window - leave the current state alone. This is
+    // the point of sailing mode, not a bug: the battery is left to drift
+    // down through this range on its own instead of topping up immediately.
 }
 
 // ---- Callbacks ---------------------------------------------------------
