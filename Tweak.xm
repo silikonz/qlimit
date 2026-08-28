@@ -61,21 +61,21 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
 // ---- Decision logic ---------------------------------------------------------
 
 static void qlimit_evaluateChargingState(void) {
-    // 1. Match the kernel power source driver node
+    // 1. Match the kernel power source driver
     CFDictionaryRef matching = IOServiceMatching("IOPMPowerSource");
-    io_service_t service = IOServiceGetMatchingService(kIOMainPortDefault, matching);
+    io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
     if (!service) return;
 
-    // 2. Query ONLY the specific primitive properties directly from kernel memory
+    // 2. Fetch ONLY the two required primitive properties
     CFBooleanRef externalConnected = (CFBooleanRef)IORegistryEntryCreateCFProperty(
-        service, CFSTR(kIOPMPSExternalConnectedKey), kCFAllocatorDefault, 0);
+        service, CFSTR("ExternalConnected"), kCFAllocatorDefault, 0);
     CFNumberRef capNum = (CFNumberRef)IORegistryEntryCreateCFProperty(
-        service, CFSTR(kIOPMPSCurrentCapacityKey), kCFAllocatorDefault, 0);
+        service, CFSTR("CurrentCapacity"), kCFAllocatorDefault, 0);
 
-    // Release the IOKit service handle immediately
+    // Release service handle immediately
     IOObjectRelease(service);
 
-    // 3. Process the charging state logic
+    // 3. Evaluate logic
     if (externalConnected && capNum) {
         BOOL isPluggedIn = CFBooleanGetValue(externalConnected);
         
@@ -91,7 +91,7 @@ static void qlimit_evaluateChargingState(void) {
         }
     }
 
-    // 4. Clean up primitive allocations
+    // 4. Memory cleanup
     if (externalConnected) CFRelease(externalConnected);
     if (capNum) CFRelease(capNum);
 }
