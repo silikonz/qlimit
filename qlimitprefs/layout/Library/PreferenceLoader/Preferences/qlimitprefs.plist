@@ -5,15 +5,17 @@
 	<key>entry</key>
 	<dict>
 		<key>bundle</key>
-		<string>QLimitPrefs</string>
+		<string>qlimitprefs</string>
 		<key>cell</key>
 		<string>PSLinkCell</string>
 		<key>detail</key>
-		<string>PSListController</string>
-		<key>label</key>
-		<string>QLimit</string>
+		<string>QLIRootListController</string>
+		<key>icon</key>
+		<string>icon.png</string>
 		<key>isController</key>
 		<true/>
+		<key>label</key>
+		<string>QLimit</string>
 	</dict>
 </dict>
 </plist>

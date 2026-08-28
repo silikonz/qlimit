@@ -1,14 +1,13 @@
-ARCHS = arm64 arm64e
+TARGET := iphone:clang:latest:7.0
 
 include $(THEOS)/makefiles/common.mk
 
-BUNDLE_NAME = QLimitPrefs
+BUNDLE_NAME = qlimitprefs
 
-# No source files - PSListController (a system class) reads Root.plist directly.
-QLimitPrefs_INSTALL_PATH = /Library/PreferenceBundles
+qlimitprefs_FILES = QLIRootListController.m
+qlimitprefs_FRAMEWORKS = UIKit
+qlimitprefs_PRIVATE_FRAMEWORKS = Preferences
+qlimitprefs_INSTALL_PATH = /Library/PreferenceBundles
+qlimitprefs_CFLAGS = -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/bundle.mk
-
-internal-stage::
-	$(ECHO_NOTHING)mkdir -p $(THEOS_STAGING_DIR)/Library/PreferenceLoader/Preferences$(ECHO_END)
-	$(ECHO_NOTHING)cp entry.plist $(THEOS_STAGING_DIR)/Library/PreferenceLoader/Preferences/QLimitPrefs.plist$(ECHO_END)
