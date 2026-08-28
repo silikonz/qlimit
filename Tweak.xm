@@ -63,6 +63,7 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
 static void qlimit_evaluateChargingState(void) {
     // 1. Match the kernel power source driver
     CFDictionaryRef matching = IOServiceMatching("IOPMPowerSource");
+    if (!matching) return;
     io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
     if (!service) return;
 
@@ -135,6 +136,8 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
             CFRelease(runLoopSource);
         }
 
-        qlimit_evaluateChargingState();
+        dispatch_async(dispatch_get_main_queue(), ^{
+            qlimit_evaluateChargingState();
+        });
     }
 }
