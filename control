@@ -1,0 +1,9 @@
+Package: me.qlimit
+Name: QLimit
+Version: 0.1
+Architecture: iphoneos-arm64
+Description: Stops charging at a set battery percentage
+Maintainer: me
+Author: me
+Section: Tweaks
+Depends: mobilesubstrate, me.hbang.preferenceloader

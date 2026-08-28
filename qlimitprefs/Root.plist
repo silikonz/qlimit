@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>title</key>
+	<string>QLimit</string>
+	<key>defaults</key>
+	<string>me.qlimit</string>
+	<key>specifiers</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>footerText</key>
+			<string>Charging stops once the battery reaches this percentage while plugged in.</string>
+			<key>id</key>
+			<string>max_charging_level</string>
+			<key>key</key>
+			<string>MaxChargingLevel</string>
+			<key>label</key>
+			<string>Max Charging Level</string>
+			<key>PostNotification</key>
+			<string>me.qlimit/prefschanged</string>
+			<key>type</key>
+			<string>PSEditTextCell</string>
+			<key>KeyboardType</key>
+			<string>NumberPad</string>
+			<key>DefaultValue</key>
+			<integer>80</integer>
+		</dict>
+	</array>
+</dict>
+</plist>
