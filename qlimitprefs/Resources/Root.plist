@@ -6,27 +6,21 @@
 	<string>QLimit</string>
 	<key>defaults</key>
 	<string>me.qlimit</string>
-	<key>specifiers</key>
+	<key>items</key>
 	<array>
 		<dict>
 			<key>cell</key>
-			<string>PSTitleValueCell</string>
-			<key>footerText</key>
-			<string>Charging stops once the battery reaches this percentage while plugged in.</string>
-			<key>id</key>
-			<string>max_charging_level</string>
+			<string>PSEditTextCell</string>
 			<key>key</key>
 			<string>MaxChargingLevel</string>
 			<key>label</key>
 			<string>Max Charging Level</string>
-			<key>PostNotification</key>
-			<string>me.qlimit/prefschanged</string>
-			<key>type</key>
-			<string>PSEditTextCell</string>
+			<key>default</key>
+			<integer>80</integer>
 			<key>KeyboardType</key>
 			<string>NumberPad</string>
-			<key>DefaultValue</key>
-			<integer>80</integer>
+			<key>PostNotification</key>
+			<string>me.qlimit/prefschanged</string>
 		</dict>
 	</array>
 </dict>
