@@ -23,7 +23,7 @@
 			<string>MaxChargingLevel</string>
 			<key>label</key>
 			<string>Max Charge Level (%)</string>
-			<key>default</key>
+			<key>placeholder</key>
 			<integer>80</integer>
 			<key>isNumeric</key>
 			<true/>
@@ -39,7 +39,7 @@
 			<string>SailDepth</string>
 			<key>label</key>
 			<string>Sail Depth (%)</string>
-			<key>default</key>
+			<key>placeholder</key>
 			<integer>5</integer>
 			<key>isNumeric</key>
 			<true/>
