@@ -2,12 +2,11 @@
 #import <IOKit/IOKitLib.h>
 #import <IOKit/ps/IOPowerSources.h>
 #import <IOKit/pwr_mgt/IOPMLib.h>
+#import <rootless.h>
 
 // ---- Config ----------------------------------------------------------
 
-#define kQLimitAppID                    CFSTR("me.qlimit")
-#define kQLimitPrefsUser                CFSTR("mobile")
-#define kQLimitPrefsKey                 CFSTR("MaxChargingLevel")
+#define kQLimitPrefsPath                ROOT_PATH_NS(@"/var/mobile/Library/Preferences/me.qlimit.plist")
 #define kQLimitPrefsChangedNotification "me.qlimit/prefschanged"
 #define kQLimitDefaultLevel             80
 
@@ -19,17 +18,12 @@ static IOPMAssertionID _qlimitAssertionID = kIOPMNullAssertionID;
 
 // ---- Preferences ---------------------------------------------------------
 
-// Goes through cfprefsd rather than a hardcoded path, so it resolves
-// correctly on rootful and rootless without us caring which one it is.
-// powerd doesn't run as `mobile`, so the user has to be named explicitly -
-// kCFPreferencesCurrentUser would resolve to powerd's own domain instead.
+// ROOT_PATH_NS resolves to the right prefix at compile time depending on
+// THEOS_PACKAGE_SCHEME, so this is the same file the prefs bundle writes to
+// on both rootful and rootless.
 static void qlimit_loadPreferences(void) {
-    CFPreferencesSynchronize(kQLimitAppID, kQLimitPrefsUser, kCFPreferencesCurrentHost);
-    id value = (__bridge_transfer id)CFPreferencesCopyValue(kQLimitPrefsKey, kQLimitAppID, kQLimitPrefsUser, kCFPreferencesCurrentHost);
-
-    // PSEditTextCell can hand back either NSNumber or NSString depending on
-    // how it was saved - both respond to intValue, so no need to branch on type.
-    _qlimitMaxChargingLevel = value ? [value intValue] : kQLimitDefaultLevel;
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:kQLimitPrefsPath];
+    _qlimitMaxChargingLevel = prefs[@"MaxChargingLevel"] ? [prefs[@"MaxChargingLevel"] intValue] : kQLimitDefaultLevel;
 }
 
 // ---- Battery state ---------------------------------------------------------
