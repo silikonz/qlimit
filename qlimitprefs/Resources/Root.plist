@@ -24,7 +24,7 @@
 			<key>label</key>
 			<string>Max Charge Level (%)</string>
 			<key>placeholder</key>
-			<integer>80</integer>
+			<string>80</string>
 			<key>isNumeric</key>
 			<true/>
 			<key>PostNotification</key>
@@ -40,7 +40,7 @@
 			<key>label</key>
 			<string>Sail Depth (%)</string>
 			<key>placeholder</key>
-			<integer>5</integer>
+			<string>5</string>
 			<key>isNumeric</key>
 			<true/>
 			<key>PostNotification</key>
