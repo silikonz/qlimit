@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <IOKit/IOKitLib.h>
+#import <IOKit/ps/IOPSKeys.h>
 #import <IOKit/ps/IOPowerSources.h>
 #import <IOKit/pwr_mgt/IOPMLib.h>
 #import <rootless.h>
@@ -35,20 +36,6 @@ static void qlimit_loadPreferences(void) {
     _qlimitSailDepth = prefs[@"SailDepth"] ? [prefs[@"SailDepth"] intValue] : kQLimitDefaultSailDepth;
 }
 
-// ---- Battery state ---------------------------------------------------------
-
-static NSDictionary *qlimit_currentBatteryInfo(void) {
-    CFDictionaryRef matching = IOServiceMatching("IOPMPowerSource");
-    io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
-    if (!service) return nil;
-
-    CFMutableDictionaryRef properties = NULL;
-    IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0);
-    IOObjectRelease(service);
-
-    return (__bridge_transfer NSDictionary *)properties;
-}
-
 // ---- The actual control primitive ---------------------------------------
 
 static void qlimit_setChargeInhibited(BOOL inhibited) {
@@ -74,25 +61,38 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
 // ---- Decision logic ---------------------------------------------------------
 
 static void qlimit_evaluateChargingState(void) {
-    NSDictionary *info = qlimit_currentBatteryInfo();
-    if (!info) return;
+    CFTypeRef blob = IOPSCopyPowerSourcesInfo();
+    if (!blob) return;
 
-    BOOL externalConnected = [info[@"ExternalConnected"] boolValue];
-    int currentCapacity = [info[@"CurrentCapacity"] intValue];
-
-    if (!externalConnected) {
-        qlimit_setChargeInhibited(NO);
+    CFArrayRef list = IOPSCopyPowerSourcesList(blob);
+    if (!list) {
+        CFRelease(blob);
         return;
     }
 
-    if (currentCapacity >= _qlimitMaxChargingLevel) {
-        qlimit_setChargeInhibited(YES);
-    } else if (currentCapacity <= _qlimitMaxChargingLevel - _qlimitSailDepth) {
-        qlimit_setChargeInhibited(NO);
+    if (CFArrayGetCount(list) > 0) {
+        CFDictionaryRef detail = IOPSGetPowerSourceDescription(blob, CFArrayGetValueAtIndex(list, 0));
+        if (detail) {
+            CFStringRef state = (CFStringRef)CFDictionaryGetValue(detail, CFSTR(kIOPSPowerSourceStateKey));
+            CFNumberRef capNum = (CFNumberRef)CFDictionaryGetValue(detail, CFSTR(kIOPSCurrentCapacityKey));
+
+            BOOL isPluggedIn = (state && CFStringCompare(state, CFSTR(kIOPSACPowerValue), 0) == kCFCompareEqualTo);
+            
+            int capacity = 0;
+            if (capNum) CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
+
+            if (!isPluggedIn) {
+                qlimit_setChargeInhibited(NO);
+            } else if (capacity >= _qlimitMaxChargingLevel) {
+                qlimit_setChargeInhibited(YES);
+            } else if (capacity <= _qlimitMaxChargingLevel - _qlimitSailDepth) {
+                qlimit_setChargeInhibited(NO);
+            }
+        }
     }
-    // else: within the sail window - leave the current state alone. This is
-    // the point of sailing mode, not a bug: the battery is left to drift
-    // down through this range on its own instead of topping up immediately.
+
+    CFRelease(list);
+    CFRelease(blob);
 }
 
 // ---- Callbacks ---------------------------------------------------------
