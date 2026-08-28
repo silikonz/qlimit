@@ -2,37 +2,56 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>entry</key>
+	<dict>
+		<key>cell</key>
+		<string>PSLinkCell</string>
+		<key>icon</key>
+		<string>icon.png</string>
+		<key>label</key>
+		<string>QLimit</string>
+	</dict>
 	<key>title</key>
 	<string>QLimit</string>
-	<key>defaults</key>
-	<string>me.qlimit</string>
 	<key>items</key>
 	<array>
 		<dict>
 			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Charging Limits</string>
+			<key>footerText</key>
+			<string>Max Charging Level is the battery percentage where charging stops. Sail Depth is how many percent the battery can drop before charging resumes.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>me.qlimit</string>
 			<key>key</key>
 			<string>MaxChargingLevel</string>
 			<key>label</key>
-			<string>Max Charging Level</string>
+			<string>Max Charge Level (%)</string>
 			<key>default</key>
 			<integer>80</integer>
-			<key>KeyboardType</key>
-			<string>NumberPad</string>
+			<key>isNumeric</key>
+			<true/>
 			<key>PostNotification</key>
 			<string>me.qlimit/prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>me.qlimit</string>
 			<key>key</key>
 			<string>SailDepth</string>
 			<key>label</key>
-			<string>Sail Depth</string>
+			<string>Sail Depth (%)</string>
 			<key>default</key>
 			<integer>5</integer>
-			<key>KeyboardType</key>
-			<string>NumberPad</string>
+			<key>isNumeric</key>
+			<true/>
 			<key>PostNotification</key>
 			<string>me.qlimit/prefschanged</string>
 		</dict>
