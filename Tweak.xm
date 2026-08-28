@@ -54,7 +54,7 @@ static NSDictionary *qlimit_currentBatteryInfo(void) {
 static void qlimit_setChargeInhibited(BOOL inhibited) {
     if (inhibited) {
         if (_qlimitAssertionID == kIOPMNullAssertionID) {
-            IOPMAssertionCreateWithName(CFSTR("ChargeInhibit"), kIOPMAssertionLevelOn, CFSTR("ChargeInhibit"), _qlimitAssertionID);
+            IOPMAssertionCreateWithName(CFSTR("ChargeInhibit"), kIOPMAssertionLevelOn, CFSTR("ChargeInhibit"), &_qlimitAssertionID);
         }
     } else {
         if (_qlimitAssertionID != kIOPMNullAssertionID) {
@@ -63,7 +63,7 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
         } else {
             // BattSafePro reset-trick: Clear stale system assertions without polling IOKit
             IOPMAssertionID tempID = kIOPMNullAssertionID;
-            if (IOPMAssertionCreateWithName(CFSTR("ChargeInhibit"), kIOPMAssertionLevelOn, CFSTR("ChargeInhibit"), tempID) == kIOReturnSuccess) {
+            if (IOPMAssertionCreateWithName(CFSTR("ChargeInhibit"), kIOPMAssertionLevelOn, CFSTR("ChargeInhibit"), &tempID) == kIOReturnSuccess) {
                 IOPMAssertionRelease(tempID);
             }
         }
