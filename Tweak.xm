@@ -198,6 +198,8 @@ static void qlimit_setupNotification(void) {
             NULL, 
             &gPowerNotification
         );
+
+        (void)kr; //werror
         QLog("Notification status code: 0x%x, Handle: %u", kr, gPowerNotification);
     }
 }
