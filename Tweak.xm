@@ -174,7 +174,7 @@ static void qlimit_setupNotification(void) {
     }
 
     CFRunLoopSourceRef runSrc = IONotificationPortGetRunLoopSource(gNotifyPort);
-    CFRunLoopAddSource(CFRunLoopGetMain(), runSrc, kCFRunLoopCommonModes);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), runSrc, kCFRunLoopDefaultMode);
 
     io_service_t serv = qlimit_getPowerService();
     QLog("Matching IOPMPowerSource handle: %u", serv);
