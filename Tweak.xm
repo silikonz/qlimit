@@ -81,11 +81,14 @@ static void qlimit_loadPreferences(void) {
 // ---- Service Resolver ------------------------------
 
 static io_service_t qlimit_getPowerService(void) {
-    io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleSmartBattery"));
-    if (!service) {
-        service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
+    static io_service_t serv = IO_OBJECT_NULL;
+    if (serv == IO_OBJECT_NULL) {
+        serv = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleSmartBattery"));
+        if (serv == IO_OBJECT_NULL) {
+            serv = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
+        }
     }
-    return service;
+    return serv;
 }
 
 // ---- Control Primitives --------------------------------------------------
@@ -109,8 +112,6 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
     } else {
         QLog("Error writing IOKit properties: 0x%x", status);
     }
-
-    IOObjectRelease(service);
 }
 
 // ---- Decision logic ---------------------------------------------------------
@@ -124,8 +125,6 @@ static void qlimit_evaluateChargingState(void) {
 
     BOOL isPluggedIn = qlimit_isAdapterConnected(service);
     CFNumberRef capNum = (CFNumberRef)qlimit_copyProperty(service, CFSTR("CurrentCapacity"));
-
-    IOObjectRelease(service);
 
     if (capNum) {
         int capacity = 0;
@@ -188,7 +187,6 @@ static void qlimit_setupIOKitNotification(void) {
             NULL, 
             &gPowerNotification
         );
-        IOObjectRelease(serv);
         QLog("Successfully registered IOKit power interest notification listener.");
     }
 }
