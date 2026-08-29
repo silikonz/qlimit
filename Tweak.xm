@@ -132,4 +132,8 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopDefaultMode);
         CFRelease(runLoopSource);
     }
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        qlimit_evaluateChargingState();
+    });
 }
