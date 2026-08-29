@@ -16,7 +16,9 @@
 
 static int _qlimitMaxChargingLevel = kQLimitDefaultLevel;
 static int _qlimitSailDepth = kQLimitDefaultSailDepth;
-static BOOL _qlimitChargeInhibited = NO;
+
+static IONotificationPortRef gNotifyPort = NULL;
+static io_object_t gPowerNotification = IO_OBJECT_NULL;
 
 // ---- Preferences ---------------------------------------------------------
 
@@ -31,32 +33,37 @@ static void qlimit_loadPreferences(void) {
     _qlimitSailDepth = qlimit_intPrefValue(kQLimitSailDepthKey, kQLimitDefaultSailDepth);
 }
 
-// ---- The actual control primitive ---------------------------------------
+// ---- Service Resolver ------------------------------
+
+static io_service_t qlimit_getPowerService(void) {
+    // Try AppleSmartBattery first (iPhone 8 and newer hardware driver)
+    io_service_t service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"));
+    if (!service) {
+        // Fallback to IOPMPowerSource for older devices
+        service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMPowerSource"));
+    }
+    return service;
+}
+
+// ---- Control Primitives --------------------------------------------------
 
 static void qlimit_setChargeInhibited(BOOL inhibited) {
-    if (inhibited == _qlimitChargeInhibited) return;
-
-    io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
+    io_service_t service = qlimit_getPowerService();
     if (!service) return;
 
     NSDictionary *props = @{
         @"IsCharging": @YES,
         @"PredictiveChargingInhibit": @(inhibited)
     };
-    kern_return_t kr = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
-    if (kr == KERN_SUCCESS) {
-        _qlimitChargeInhibited = inhibited;
-    }
+
+    IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
     IOObjectRelease(service);
 }
-
 
 // ---- Decision logic ---------------------------------------------------------
 
 static void qlimit_evaluateChargingState(void) {
-    CFDictionaryRef matching = IOServiceMatching("IOPMPowerSource");
-    if (!matching) return;
-    io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+    io_service_t service = qlimit_getPowerService();
     if (!service) return;
 
     CFBooleanRef externalConnected = (CFBooleanRef)IORegistryEntryCreateCFProperty(
@@ -87,7 +94,7 @@ static void qlimit_evaluateChargingState(void) {
 
 // ---- Callbacks ---------------------------------------------------------
 
-static void qlimit_powerSourceChangedCallback(void *context) {
+static void qlimit_powerSourceChangedCallback(void *refcon, io_service_t service, uint32_t messageType, void *messageArgument) {
     qlimit_evaluateChargingState();
 }
 
@@ -98,6 +105,29 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
                                                CFDictionaryRef userInfo) {
     qlimit_loadPreferences();
     qlimit_evaluateChargingState();
+}
+
+// ---- Setup Low-Level Hook ------------
+
+static void qlimit_setupIOKitNotification(void) {
+    gNotifyPort = IONotificationPortCreate(kIOMainPortDefault);
+    if (!gNotifyPort) return;
+
+    CFRunLoopSourceRef runSrc = IONotificationPortGetRunLoopSource(gNotifyPort);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), runSrc, kCFRunLoopDefaultMode);
+
+    io_service_t serv = qlimit_getPowerService();
+    if (serv != IO_OBJECT_NULL) {
+        IOServiceAddInterestNotification(
+            gNotifyPort, 
+            serv, 
+            "IOGeneralInterest", 
+            (IOServiceInterestCallback)qlimit_powerSourceChangedCallback, 
+            NULL, 
+            &gPowerNotification
+        );
+        IOObjectRelease(serv);
+    }
 }
 
 // ---- Entry point ---------------------------------------------------------
@@ -112,12 +142,7 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
                                      NULL,
                                      CFNotificationSuspensionBehaviorDeliverImmediately);
 
-    CFRunLoopSourceRef runLoopSource =
-        IOPSNotificationCreateRunLoopSource((IOPowerSourceCallbackType)qlimit_powerSourceChangedCallback, NULL);
-    if (runLoopSource) {
-        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopDefaultMode);
-        CFRelease(runLoopSource);
-    }
+    qlimit_setupIOKitNotification();
 
     dispatch_async(dispatch_get_main_queue(), ^{
         qlimit_evaluateChargingState();
