@@ -15,6 +15,7 @@ static CFStringRef const kQLimitPrefsChangedNotification = CFSTR("me.qlimit/pref
 static const int kQLimitDefaultLevel     = 80;
 static const int kQLimitDefaultSailDepth = 5;
 
+
 #define QLIMIT_DEBUG 0
 #if QLIMIT_DEBUG
     #define QLog(fmt, ...) \
@@ -107,13 +108,8 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
         @"PredictiveChargingInhibit": inhibited ? @YES : @NO,
     };
 
-    kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
-    (void)status;
-    if (status == kIOReturnSuccess) {
-        QLog("Successfully set charge inhibited = %s", inhibited ? "YES" : "NO");
-    } else {
-        QLog("Error writing IOKit properties: 0x%x", status);
-    }
+    __attribute__((unused)) kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
+    QLog("Writing IOKit properties status 0x%x, inhibited = %s", status, inhibited ? "YES" : "NO");
 }
 
 // ---- Decision logic ---------------------------------------------------------
@@ -186,7 +182,7 @@ static void qlimit_setupNotification(void) {
     QLog("Matching PowerSource handle: %u", serv);
     
     if (serv != IO_OBJECT_NULL) {
-        kern_return_t kr = IOServiceAddInterestNotification(
+        __attribute__((unused)) kern_return_t kr = IOServiceAddInterestNotification(
             gNotifyPort, 
             serv, 
             "IOGeneralInterest", 
@@ -195,7 +191,6 @@ static void qlimit_setupNotification(void) {
             &gPowerNotification
         );
 
-        (void)kr; //werror
         QLog("Notification status code: 0x%x, Handle: %u", kr, gPowerNotification);
     }
 }
