@@ -167,14 +167,24 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
 // ---- Setup Low-Level Hook (Exact ChargeLimiter Architecture) ------------
 
 static void qlimit_setupNotification(void) {
-    gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
-    if (!gNotifyPort) {
-        QLog("Failed to create IONotificationPort!");
+    if (gNotifyPort != NULL) return;
+
+    mach_port_t tempMaster = MACH_PORT_NULL;
+    if (IOMasterPort(MACH_PORT_NULL, &tempMaster) != kIOReturnSuccess || !tempMaster) {
+        QLog("CRITICAL: Failed to allocate temporary master port.");
         return;
     }
 
-    CFRunLoopSourceRef runSrc = IONotificationPortGetRunLoopSource(gNotifyPort);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runSrc, kCFRunLoopDefaultMode);
+    gNotifyPort = IONotificationPortCreate(tempMaster);
+
+    mach_port_deallocate(mach_task_self(), tempMaster);
+
+    if (!gNotifyPort) {
+        QLog("CRITICAL: Failed to create IONotificationPort!");
+        return;
+    }
+
+    CFRunLoopAddSource(CFRunLoopGetMain(), IONotificationPortGetRunLoopSource(gNotifyPort), kCFRunLoopCommonModes);
 
     io_service_t serv = qlimit_getPowerService();
     QLog("Matching IOPMPowerSource handle: %u", serv);
@@ -187,7 +197,14 @@ static void qlimit_setupNotification(void) {
             NULL, 
             &gPowerNotification
         );
-        QLog("Notification status code: 0x%x, Notification Handle: %u", kr, gPowerNotification);
+
+        if (kr == kIOReturnSuccess) {
+            QLog("Successfully registered IOKit power notification listener.");
+        } else {
+            QLog("CRITICAL: Failed to add interest notification (0x%x)", kr);
+            IONotificationPortDestroy(gNotifyPort);
+            gNotifyPort = NULL;
+        }
     }
 }
 
