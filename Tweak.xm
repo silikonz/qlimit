@@ -107,7 +107,7 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
 
     kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
     if (status == kIOReturnSuccess) {
-        QLog("Successfully set charge inhibited = %s (ExternalConnected = %s)", inhibited ? "YES" : "NO", (!inhibited) ? "YES" : "NO");
+        QLog("Successfully set charge inhibited = %s", inhibited ? "YES" : "NO");
     } else {
         QLog("Error writing IOKit properties: 0x%x", status);
     }
@@ -174,7 +174,7 @@ static void qlimit_setupIOKitNotification(void) {
     }
 
     CFRunLoopSourceRef runSrc = IONotificationPortGetRunLoopSource(gNotifyPort);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runSrc, kCFRunLoopDefaultMode);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), runSrc, kCFRunLoopCommonModes);
 
     io_service_t serv = qlimit_getPowerService();
     QLog("Matching IOPMPowerSource handle: %u", serv);
