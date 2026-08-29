@@ -13,12 +13,15 @@
 #define kQLimitDefaultSailDepth         5
 
 
-#import <os/log.h>
 #define QLIMIT_DEBUG 1
 #if QLIMIT_DEBUG
     #define QLog(fmt, ...) \
         do { \
-            os_log_error(OS_LOG_DEFAULT, "[QLimit] " fmt, ##__VA_ARGS__); \
+            FILE *f = fopen("/var/mobile/Library/Logs/qlimit.log", "a"); \
+            if (f) { \
+                fprintf(f, "[QLimit] " fmt "\n", ##__VA_ARGS__); \
+                fclose(f); \
+            } \
         } while (0)
 #else
     #define QLog(fmt, ...) do {} while (0)
