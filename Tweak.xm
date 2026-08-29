@@ -166,7 +166,7 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
 
 // ---- Setup Low-Level Hook (Exact ChargeLimiter Architecture) ------------
 
-static void qlimit_setupIOKitNotification(void) {
+static void qlimit_setupNotification(void) {
     gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
     if (!gNotifyPort) {
         QLog("Failed to create IONotificationPort!");
@@ -174,7 +174,7 @@ static void qlimit_setupIOKitNotification(void) {
     }
 
     CFRunLoopSourceRef runSrc = IONotificationPortGetRunLoopSource(gNotifyPort);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runSrc, kCFRunLoopCommonModes);
+    CFRunLoopAddSource(CFRunLoopGetMain(), runSrc, kCFRunLoopCommonModes);
 
     io_service_t serv = qlimit_getPowerService();
     QLog("Matching IOPMPowerSource handle: %u", serv);
@@ -205,7 +205,7 @@ static void qlimit_setupIOKitNotification(void) {
 
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        qlimit_setupIOKitNotification();
+        qlimit_setupNotification();
         qlimit_evaluateChargingState();
     });
 }
