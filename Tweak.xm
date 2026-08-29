@@ -30,7 +30,6 @@ static int qlimit_intPrefValue(CFStringRef key, int defaultValue) {
 }
 
 static void qlimit_loadPreferences(void) {
-    CFPreferencesSynchronize(kQLimitAppID, kQLimitPrefsUser, kCFPreferencesCurrentHost);
     _qlimitMaxChargingLevel = qlimit_intPrefValue(kQLimitMaxLevelKey, kQLimitDefaultLevel);
     _qlimitSailDepth = qlimit_intPrefValue(kQLimitSailDepthKey, kQLimitDefaultSailDepth);
 }
@@ -133,8 +132,4 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopDefaultMode);
         CFRelease(runLoopSource);
     }
-  
-    dispatch_async(dispatch_get_main_queue(), ^{
-        qlimit_evaluateChargingState();
-    });
 }
