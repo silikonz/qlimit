@@ -33,6 +33,7 @@ extern "C" void IONotificationPortSetDispatchQueue(IONotificationPortRef notifyP
 
 static int _qlimitMaxChargingLevel = kQLimitDefaultLevel;
 static int _qlimitSailDepth = kQLimitDefaultSailDepth;
+static BOOL _qlimitChargeInhibited = NO;
 
 static IONotificationPortRef gNotifyPort = NULL;
 static io_object_t gPowerNotification = IO_OBJECT_NULL;
@@ -103,12 +104,13 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
     }
 
     NSDictionary *props = @{
-        @"IsCharging": inhibited ? @NO : @YES,
+        //@"IsCharging": inhibited ? @NO : @YES,
         @"PredictiveChargingInhibit": inhibited ? @YES : @NO,
     };
 
     kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
     if (status == kIOReturnSuccess) {
+        _qlimitChargeInhibited = inhibited;
         QLog("Successfully set charge inhibited = %s", inhibited ? "YES" : "NO");
     } else {
         QLog("Error writing IOKit properties: 0x%x", status);
@@ -132,15 +134,14 @@ static void qlimit_evaluateChargingState(void) {
         CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
         CFRelease(capNum);
 
-        QLog("Evaluating: PluggedIn=%s, Capacity=%d%%, MaxThreshold=%d%%, ResumeThreshold=%d%%", isPluggedIn ? "YES" : "NO", capacity, _qlimitMaxChargingLevel, (_qlimitMaxChargingLevel - _qlimitSailDepth));
-
-        if (!isPluggedIn) {
+        QLog("Evaluating: PluggedIn=%s, Capacity=%d%%, Inhibited=%s, MaxThreshold=%d%%, ResumeThreshold=%d%%", isPluggedIn ? "YES" : "NO", capacity, _qlimitChargeInhibited ? "YES" : "NO", _qlimitMaxChargingLevel, (_qlimitMaxChargingLevel - _qlimitSailDepth));
+        if (!isPluggedIn && _qlimitChargeInhibited) {
             QLog("Device is unplugged. Resetting charge inhibit.");
             qlimit_setChargeInhibited(NO);
-        } else if (capacity >= _qlimitMaxChargingLevel) {
+        } else if (isPluggedIn && (capacity >= _qlimitMaxChargingLevel) && !_qlimitChargeInhibited) {
             QLog("Max battery limit reached (%d >= %d). Halting charge.", capacity, _qlimitMaxChargingLevel);
             qlimit_setChargeInhibited(YES);
-        } else if (capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) {
+        } else if (isPluggedIn && (capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) && _qlimitChargeInhibited) {
             QLog("Sailing threshold reached (%d <= %d). Resuming charge.", capacity, (_qlimitMaxChargingLevel - _qlimitSailDepth));
             qlimit_setChargeInhibited(NO);
         }
@@ -151,9 +152,12 @@ static void qlimit_evaluateChargingState(void) {
 
 // ---- Callbacks ---------------------------------------------------------
 
+static id qlimit_stateLock = [NSObject new];
 static void qlimit_powerSourceChangedCallback(void *refcon, io_service_t service, uint32_t messageType, void *messageArgument) {
-    QLog("IOKit Power Event Fired: messageType = 0x%x", messageType);
-    qlimit_evaluateChargingState();
+    @synchronized (qlimit_stateLock) {
+        QLog("IOKit Power Event Fired: messageType = 0x%x", messageType);
+        qlimit_evaluateChargingState();
+    }
 }
 
 static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
