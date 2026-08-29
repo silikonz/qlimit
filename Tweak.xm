@@ -47,8 +47,6 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
                                                        &_qlimitAssertionID);
         if (result == kIOReturnSuccess) {
             _qlimitChargeInhibited = YES;
-        } else {
-            _qlimitAssertionID = kIOPMNullAssertionID;
         }
     } else {
         if (_qlimitAssertionID != kIOPMNullAssertionID) {
