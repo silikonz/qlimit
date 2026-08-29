@@ -37,10 +37,10 @@ static void qlimit_loadPreferences(void) {
 
 static io_service_t qlimit_getPowerService(void) {
     // Try AppleSmartBattery first (iPhone 8 and newer hardware driver)
-    io_service_t service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"));
+    io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleSmartBattery"));
     if (!service) {
         // Fallback to IOPMPowerSource for older devices
-        service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMPowerSource"));
+        service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
     }
     return service;
 }
@@ -110,7 +110,7 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
 // ---- Setup Low-Level Hook ------------
 
 static void qlimit_setupIOKitNotification(void) {
-    gNotifyPort = IONotificationPortCreate(kIOMainPortDefault);
+    gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
     if (!gNotifyPort) return;
 
     CFRunLoopSourceRef runSrc = IONotificationPortGetRunLoopSource(gNotifyPort);
