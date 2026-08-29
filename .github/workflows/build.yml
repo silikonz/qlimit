@@ -11,12 +11,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache Theos SDKs
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/theos/sdks
-          key: ${{ runner.os }}-theos-sdks-v1
-
       - name: Setup Theos
         uses: Randomblock1/theos-action@v1
 
