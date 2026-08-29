@@ -1,6 +1,9 @@
 #import <Foundation/Foundation.h>
 #import <IOKit/IOKitLib.h>
 #import <IOKit/ps/IOPowerSources.h>
+#import <mach/mach.h>
+#import <mach/mach_port.h>
+
 
 // ---- Config ----------------------------------------------------------
 
