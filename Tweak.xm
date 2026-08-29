@@ -20,6 +20,34 @@ static int _qlimitSailDepth = kQLimitDefaultSailDepth;
 static IONotificationPortRef gNotifyPort = NULL;
 static io_object_t gPowerNotification = IO_OBJECT_NULL;
 
+// ---- Helpers ------------------------------------------------------------
+
+static CFTypeRef qlimit_copyProperty(io_service_t service, CFStringRef key) {
+    if (!service) return NULL;
+    return IORegistryEntryCreateCFProperty(service, key, kCFAllocatorDefault, 0);
+}
+
+static BOOL qlimit_isAdapterConnected(io_service_t service) {
+    CFDictionaryRef adapterDetails = (CFDictionaryRef)qlimit_copyProperty(service, CFSTR("AdapterDetails"));
+    if (adapterDetails) {
+        NSDictionary *details = (__bridge NSDictionary *)adapterDetails;
+        NSString *desc = details[@"Description"];
+        BOOL isConnected = (desc && ![desc isEqualToString:@"batt"]);
+        CFRelease(adapterDetails);
+        return isConnected;
+    }
+    
+    // Fallback if AdapterDetails is nil (e.g., standard 5W chargers / older devices)
+    CFBooleanRef chargeCapable = (CFBooleanRef)qlimit_copyProperty(service, CFSTR("ExternalChargeCapable"));
+    if (chargeCapable) {
+        BOOL isConnected = CFBooleanGetValue(chargeCapable);
+        CFRelease(chargeCapable);
+        return isConnected;
+    }
+
+    return NO;
+}
+
 // ---- Preferences ---------------------------------------------------------
 
 static int qlimit_intPrefValue(CFStringRef key, int defaultValue) {
@@ -37,10 +65,10 @@ static void qlimit_loadPreferences(void) {
 
 static io_service_t qlimit_getPowerService(void) {
     // Try AppleSmartBattery first (iPhone 8 and newer hardware driver)
-    io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleSmartBattery"));
+    io_service_t service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"));
     if (!service) {
         // Fallback to IOPMPowerSource for older devices
-        service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
+        service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMPowerSource"));
     }
     return service;
 }
@@ -53,7 +81,8 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
 
     NSDictionary *props = @{
         @"IsCharging": @YES,
-        @"PredictiveChargingInhibit": @(inhibited)
+        @"PredictiveChargingInhibit": @(inhibited),
+        @"ExternalConnected": @(!inhibited)
     };
 
     IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
@@ -66,16 +95,12 @@ static void qlimit_evaluateChargingState(void) {
     io_service_t service = qlimit_getPowerService();
     if (!service) return;
 
-    CFBooleanRef externalConnected = (CFBooleanRef)IORegistryEntryCreateCFProperty(
-        service, CFSTR("ExternalConnected"), kCFAllocatorDefault, 0);
-    CFNumberRef capNum = (CFNumberRef)IORegistryEntryCreateCFProperty(
-        service, CFSTR("CurrentCapacity"), kCFAllocatorDefault, 0);
+    BOOL isPluggedIn = qlimit_isAdapterConnected(service);
+    CFNumberRef capNum = (CFNumberRef)qlimit_copyProperty(service, CFSTR("CurrentCapacity"));
 
     IOObjectRelease(service);
 
-    if (externalConnected && capNum) {
-        BOOL isPluggedIn = CFBooleanGetValue(externalConnected);
-
+    if (capNum) {
         int capacity = 0;
         CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
 
@@ -86,10 +111,9 @@ static void qlimit_evaluateChargingState(void) {
         } else if (capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) {
             qlimit_setChargeInhibited(NO);
         }
-    }
 
-    if (externalConnected) CFRelease(externalConnected);
-    if (capNum) CFRelease(capNum);
+        CFRelease(capNum);
+    }
 }
 
 // ---- Callbacks ---------------------------------------------------------
@@ -107,10 +131,10 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
     qlimit_evaluateChargingState();
 }
 
-// ---- Setup Low-Level Hook ------------
+// ---- Setup Low-Level Hook (Exact ChargeLimiter Architecture) ------------
 
 static void qlimit_setupIOKitNotification(void) {
-    gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+    gNotifyPort = IONotificationPortCreate(kIOMainPortDefault);
     if (!gNotifyPort) return;
 
     CFRunLoopSourceRef runSrc = IONotificationPortGetRunLoopSource(gNotifyPort);
