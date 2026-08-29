@@ -6,14 +6,14 @@ extern "C" void IONotificationPortSetDispatchQueue(IONotificationPortRef notifyP
 
 // ---- Config ----------------------------------------------------------
 
-#define kQLimitAppID                    CFSTR("me.qlimit")
-#define kQLimitPrefsUser                CFSTR("mobile")
-#define kQLimitMaxLevelKey              CFSTR("MaxChargingLevel")
-#define kQLimitSailDepthKey             CFSTR("SailDepth")
-#define kQLimitPrefsChangedNotification "me.qlimit/prefschanged"
-#define kQLimitDefaultLevel             80
-#define kQLimitDefaultSailDepth         5
+static CFStringRef const kQLimitAppID                    = CFSTR("me.qlimit");
+static CFStringRef const kQLimitPrefsUser                = CFSTR("mobile");
+static CFStringRef const kQLimitMaxLevelKey              = CFSTR("MaxChargingLevel");
+static CFStringRef const kQLimitSailDepthKey             = CFSTR("SailDepth");
+static CFStringRef const kQLimitPrefsChangedNotification = CFSTR("me.qlimit/prefschanged");
 
+static const int kQLimitDefaultLevel     = 80;
+static const int kQLimitDefaultSailDepth = 5;
 
 #define QLIMIT_DEBUG 0
 #if QLIMIT_DEBUG
@@ -39,27 +39,23 @@ static io_object_t gPowerNotification = IO_OBJECT_NULL;
 
 // ---- Helpers ------------------------------------------------------------
 
-static CFTypeRef qlimit_copyProperty(io_service_t service, CFStringRef key) {
-    if (!service) return NULL;
-    return IORegistryEntryCreateCFProperty(service, key, kCFAllocatorDefault, 0);
+static id qlimit_getProperty(io_service_t service, CFStringRef key) {
+    if (!service) return nil;
+    CFTypeRef prop = IORegistryEntryCreateCFProperty(service, key, kCFAllocatorDefault, 0);
+    return prop ? (__bridge_transfer id)prop : nil;
 }
 
 static BOOL qlimit_isAdapterConnected(io_service_t service) {
-    CFDictionaryRef adapterDetails = (CFDictionaryRef)qlimit_copyProperty(service, CFSTR("AdapterDetails"));
-    if (adapterDetails) {
-        NSDictionary *details = (__bridge NSDictionary *)adapterDetails;
+    NSDictionary *details = qlimit_getProperty(service, CFSTR("AdapterDetails"));
+    if (details) {
         NSString *desc = details[@"Description"];
-        BOOL isConnected = (desc && ![desc isEqualToString:@"batt"]);
-        CFRelease(adapterDetails);
-        return isConnected;
+        return (desc && ![desc isEqualToString:@"batt"]);
     }
     
     // Fallback if AdapterDetails is nil (e.g., standard 5W chargers / older devices)
-    CFBooleanRef chargeCapable = (CFBooleanRef)qlimit_copyProperty(service, CFSTR("ExternalChargeCapable"));
+    NSNumber *chargeCapable = qlimit_getProperty(service, CFSTR("ExternalChargeCapable"));
     if (chargeCapable) {
-        BOOL isConnected = CFBooleanGetValue(chargeCapable);
-        CFRelease(chargeCapable);
-        return isConnected;
+        return [chargeCapable boolValue];
     }
 
     return NO;
@@ -96,14 +92,8 @@ static io_service_t qlimit_getPowerService(void) {
 // ---- Control Primitives --------------------------------------------------
 
 static BOOL qlimit_isChargeInhibited(io_service_t service) {
-    if (!service) return NO;
-    CFBooleanRef val = (CFBooleanRef)qlimit_copyProperty(service, CFSTR("PredictiveChargingInhibit"));
-    if (val) {
-        BOOL isInhibited = CFBooleanGetValue(val);
-        CFRelease(val);
-        return isInhibited;
-    }
-    return NO;
+    NSNumber *val = qlimit_getProperty(service, CFSTR("PredictiveChargingInhibit"));
+    return val ? [val boolValue] : NO;
 }
 static void qlimit_setChargeInhibited(BOOL inhibited) {
     io_service_t service = qlimit_getPowerService();
@@ -137,11 +127,9 @@ static void qlimit_evaluateChargingState(void) {
 
     BOOL isPluggedIn = qlimit_isAdapterConnected(service);
 
-    CFNumberRef capNum = (CFNumberRef)qlimit_copyProperty(service, CFSTR("CurrentCapacity"));
+    NSNumber *capNum = qlimit_getProperty(service, CFSTR("CurrentCapacity"));
     if (capNum) {
-        int capacity = 0;
-        CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
-        CFRelease(capNum);
+        int capacity = [capNum intValue];
 
         BOOL isInhibited = qlimit_isChargeInhibited(service);
 
@@ -220,7 +208,7 @@ static void qlimit_setupNotification(void) {
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(),
                                      NULL,
                                      qlimit_preferencesChangedCallback,
-                                     CFSTR(kQLimitPrefsChangedNotification),
+                                     kQLimitPrefsChangedNotification,
                                      NULL,
                                      CFNotificationSuspensionBehaviorDeliverImmediately);
 
