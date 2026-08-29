@@ -37,16 +37,16 @@ static void qlimit_loadPreferences(void) {
 // ---- The actual control primitive ---------------------------------------
 
 static void qlimit_setChargeInhibited(BOOL inhibited) {
-    if (inhibited == _qlimitChargeInhibited) return;
-
     if (inhibited) {
+        if (_qlimitAssertionID != kIOPMNullAssertionID) {
+            IOPMAssertionRelease(_qlimitAssertionID);
+            _qlimitAssertionID = kIOPMNullAssertionID;
+        }
         IOReturn result = IOPMAssertionCreateWithName(CFSTR("ChargeInhibit"),
                                                        kIOPMAssertionLevelOn,
                                                        CFSTR("QLimit active"),
                                                        &_qlimitAssertionID);
-        if (result == kIOReturnSuccess) {
-            _qlimitChargeInhibited = YES;
-        }
+        _qlimitChargeInhibited = (result == kIOReturnSuccess);
     } else {
         if (_qlimitAssertionID != kIOPMNullAssertionID) {
             IOPMAssertionRelease(_qlimitAssertionID);
