@@ -15,7 +15,7 @@ extern "C" void IONotificationPortSetDispatchQueue(IONotificationPortRef notifyP
 #define kQLimitDefaultSailDepth         5
 
 
-#define QLIMIT_DEBUG 1
+#define QLIMIT_DEBUG 0
 #if QLIMIT_DEBUG
     #define QLog(fmt, ...) \
         do { \
@@ -135,15 +135,20 @@ static void qlimit_evaluateChargingState(void) {
         CFRelease(capNum);
 
         QLog("Evaluating: PluggedIn=%s, Capacity=%d%%, Inhibited=%s, MaxThreshold=%d%%, ResumeThreshold=%d%%", isPluggedIn ? "YES" : "NO", capacity, _qlimitChargeInhibited ? "YES" : "NO", _qlimitMaxChargingLevel, (_qlimitMaxChargingLevel - _qlimitSailDepth));
-        if (!isPluggedIn && _qlimitChargeInhibited) {
-            QLog("Device is unplugged. Resetting charge inhibit.");
-            qlimit_setChargeInhibited(NO);
-        } else if (isPluggedIn && (capacity >= _qlimitMaxChargingLevel) && !_qlimitChargeInhibited) {
-            QLog("Max battery limit reached (%d >= %d). Halting charge.", capacity, _qlimitMaxChargingLevel);
-            qlimit_setChargeInhibited(YES);
-        } else if (isPluggedIn && (capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) && _qlimitChargeInhibited) {
-            QLog("Sailing threshold reached (%d <= %d). Resuming charge.", capacity, (_qlimitMaxChargingLevel - _qlimitSailDepth));
-            qlimit_setChargeInhibited(NO);
+        
+        if (isPluggedIn) {
+            if ((capacity >= _qlimitMaxChargingLevel) && !_qlimitChargeInhibited) {
+                QLog("Max battery limit reached (%d >= %d). Halting charge.", capacity, _qlimitMaxChargingLevel);
+                qlimit_setChargeInhibited(YES);
+            } else if ((capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) && _qlimitChargeInhibited) {
+                QLog("Sailing threshold reached (%d <= %d). Resuming charge.", capacity, (_qlimitMaxChargingLevel - _qlimitSailDepth));
+                qlimit_setChargeInhibited(NO);
+            }
+        } else { //not plugged in
+            if (_qlimitChargeInhibited) {
+                QLog("Device is unplugged. Resetting charge inhibit.");
+                qlimit_setChargeInhibited(NO);
+            }
         }
     } else {
         QLog("Failed to read CurrentCapacity from IOKit service.");
@@ -170,7 +175,7 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
     qlimit_evaluateChargingState();
 }
 
-// ---- Setup Low-Level Hook (Exact ChargeLimiter Architecture) ------------
+// ---- Setup Low-Level Hook ------------
 
 static void qlimit_setupNotification(void) {
     gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
