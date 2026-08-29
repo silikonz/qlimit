@@ -1,9 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <IOKit/IOKitLib.h>
 #import <IOKit/ps/IOPowerSources.h>
-#import <mach/mach.h>
-#import <mach/mach_port.h>
-
 
 // ---- Config ----------------------------------------------------------
 
@@ -170,27 +167,17 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
 // ---- Setup Low-Level Hook (Exact ChargeLimiter Architecture) ------------
 
 static void qlimit_setupNotification(void) {
-    if (gNotifyPort != NULL) return;
-
-    mach_port_t tempMaster = MACH_PORT_NULL;
-    if (IOMasterPort(MACH_PORT_NULL, &tempMaster) != kIOReturnSuccess || !tempMaster) {
-        QLog("CRITICAL: Failed to allocate temporary master port.");
-        return;
-    }
-
-    gNotifyPort = IONotificationPortCreate(tempMaster);
-
-    mach_port_deallocate(mach_task_self(), tempMaster);
-
+    gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
     if (!gNotifyPort) {
-        QLog("CRITICAL: Failed to create IONotificationPort!");
+        QLog("Failed to create IONotificationPort!");
         return;
     }
 
-    CFRunLoopAddSource(CFRunLoopGetMain(), IONotificationPortGetRunLoopSource(gNotifyPort), kCFRunLoopCommonModes);
+    IONotificationPortSetDispatchQueue(gNotifyPort, dispatch_get_main_queue());
 
     io_service_t serv = qlimit_getPowerService();
-    QLog("Matching IOPMPowerSource handle: %u", serv);
+    QLog("Matching PowerSource handle: %u", serv);
+    
     if (serv != IO_OBJECT_NULL) {
         kern_return_t kr = IOServiceAddInterestNotification(
             gNotifyPort, 
@@ -200,14 +187,7 @@ static void qlimit_setupNotification(void) {
             NULL, 
             &gPowerNotification
         );
-
-        if (kr == kIOReturnSuccess) {
-            QLog("Successfully registered IOKit power notification listener.");
-        } else {
-            QLog("CRITICAL: Failed to add interest notification (0x%x)", kr);
-            IONotificationPortDestroy(gNotifyPort);
-            gNotifyPort = NULL;
-        }
+        QLog("Notification status code: 0x%x, Handle: %u", kr, gPowerNotification);
     }
 }
 
