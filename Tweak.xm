@@ -157,12 +157,9 @@ static void qlimit_evaluateChargingState(void) {
 
 // ---- Callbacks ---------------------------------------------------------
 
-static id qlimit_stateLock = [NSObject new];
 static void qlimit_powerSourceChangedCallback(void *refcon, io_service_t service, uint32_t messageType, void *messageArgument) {
-    @synchronized (qlimit_stateLock) {
-        QLog("IOKit Power Event Fired: messageType = 0x%x", messageType);
-        qlimit_evaluateChargingState();
-    }
+    QLog("IOKit Power Event Fired: messageType = 0x%x", messageType);
+    qlimit_evaluateChargingState();
 }
 
 static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
