@@ -2,6 +2,8 @@
 #import <IOKit/IOKitLib.h>
 #import <IOKit/ps/IOPowerSources.h>
 
+extern "C" void IONotificationPortSetDispatchQueue(IONotificationPortRef notifyPort, dispatch_queue_t queue);
+
 // ---- Config ----------------------------------------------------------
 
 #define kQLimitAppID                    CFSTR("me.qlimit")
