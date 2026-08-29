@@ -103,8 +103,10 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
     NSDictionary *props = @{
         @"IsCharging": inhibited ? @NO : @YES,
         @"PredictiveChargingInhibit": inhibited ? @YES : @NO,
-        @"ExternalConnected": (inhibited && isPlugged) ? @NO : @YES
     };
+    if (isPlugged) {
+        props[@"ExternalConnected"] = inhibited ? @NO : @YES;
+    }
 
     kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
     if (status == kIOReturnSuccess) {
