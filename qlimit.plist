@@ -1,5 +1,5 @@
 {
 	Filter = {
-		Executables = ( osanalyticshelper );
+		Executables = ( powerd );
 	};
 }
