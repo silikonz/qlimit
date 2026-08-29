@@ -151,7 +151,7 @@ static void qlimit_evaluateChargingState(void) {
 // ---- Callbacks ---------------------------------------------------------
 
 static void qlimit_powerSourceChangedCallback(void *refcon, io_service_t service, uint32_t messageType, void *messageArgument) {
-    QLog("IOKit Power Source Changed Event Fired.");
+    QLog("IOKit Power Event Fired: messageType = 0x%x", messageType);
     qlimit_evaluateChargingState();
 }
 
@@ -203,9 +203,9 @@ static void qlimit_setupIOKitNotification(void) {
                                      NULL,
                                      CFNotificationSuspensionBehaviorDeliverImmediately);
 
-    qlimit_setupIOKitNotification();
 
     dispatch_async(dispatch_get_main_queue(), ^{
+        qlimit_setupIOKitNotification();
         qlimit_evaluateChargingState();
     });
 }
