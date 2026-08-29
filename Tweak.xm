@@ -83,7 +83,10 @@ static void qlimit_loadPreferences(void) {
 static io_service_t qlimit_getPowerService(void) {
     static io_service_t serv = IO_OBJECT_NULL;
     if (serv == IO_OBJECT_NULL) {
-        serv = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
+        serv = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleSmartBattery"));
+        if (serv == IO_OBJECT_NULL) {
+            serv = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
+        }
     }
     return serv;
 }
@@ -174,8 +177,9 @@ static void qlimit_setupIOKitNotification(void) {
     CFRunLoopAddSource(CFRunLoopGetCurrent(), runSrc, kCFRunLoopDefaultMode);
 
     io_service_t serv = qlimit_getPowerService();
+    QLog("Matching IOPMPowerSource handle: %u", serv);
     if (serv != IO_OBJECT_NULL) {
-        IOServiceAddInterestNotification(
+        kern_return_t kr = IOServiceAddInterestNotification(
             gNotifyPort, 
             serv, 
             "IOGeneralInterest", 
@@ -183,7 +187,7 @@ static void qlimit_setupIOKitNotification(void) {
             NULL, 
             &gPowerNotification
         );
-        QLog("Successfully registered IOKit power interest notification listener.");
+        QLog("Notification status code: 0x%x, Notification Handle: %u", kr, gPowerNotification);
     }
 }
 
