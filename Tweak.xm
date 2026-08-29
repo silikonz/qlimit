@@ -1,13 +1,14 @@
 #import <Foundation/Foundation.h>
 #import <IOKit/IOKitLib.h>
-#import <IOKit/ps/IOPSKeys.h>
 #import <IOKit/ps/IOPowerSources.h>
 #import <IOKit/pwr_mgt/IOPMLib.h>
-#import <rootless.h>
 
 // ---- Config ----------------------------------------------------------
 
-#define kQLimitPrefsPath                ROOT_PATH_NS(@"/var/mobile/Library/Preferences/me.qlimit.plist")
+#define kQLimitAppID                    CFSTR("me.qlimit")
+#define kQLimitPrefsUser                CFSTR("mobile")
+#define kQLimitMaxLevelKey              CFSTR("MaxChargingLevel")
+#define kQLimitSailDepthKey             CFSTR("SailDepth")
 #define kQLimitPrefsChangedNotification "me.qlimit/prefschanged"
 #define kQLimitDefaultLevel             80
 #define kQLimitDefaultSailDepth         5   // mirrors AlDente's Sailing Mode: lets the battery buffer small
@@ -23,17 +24,15 @@ static IOPMAssertionID _qlimitAssertionID = kIOPMNullAssertionID;
 
 // ---- Preferences ---------------------------------------------------------
 
-// The prefs bundle uses PSListController's own default persistence (no
-// custom setPreferenceValue:/readPreferenceValue: override), which goes
-// through CFPreferences/cfprefsd under the "me.qlimit" domain set as
-// Root.plist's top-level "defaults" key - so we read it back the same way.
-// powerd doesn't run as `mobile`, so the user has to be named explicitly -
-// kCFPreferencesCurrentUser would resolve to powerd's own domain instead.
+static int qlimit_intPrefValue(CFStringRef key, int defaultValue) {
+    id value = (__bridge_transfer id)CFPreferencesCopyValue(key, kQLimitAppID, kQLimitPrefsUser, kCFPreferencesCurrentHost);
+    return value ? [value intValue] : defaultValue;
+}
 
 static void qlimit_loadPreferences(void) {
-    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:kQLimitPrefsPath];
-    _qlimitMaxChargingLevel = prefs[@"MaxChargingLevel"] ? [prefs[@"MaxChargingLevel"] intValue] : kQLimitDefaultLevel;
-    _qlimitSailDepth = prefs[@"SailDepth"] ? [prefs[@"SailDepth"] intValue] : kQLimitDefaultSailDepth;
+    CFPreferencesSynchronize(kQLimitAppID, kQLimitPrefsUser, kCFPreferencesCurrentHost);
+    _qlimitMaxChargingLevel = qlimit_intPrefValue(kQLimitMaxLevelKey, kQLimitDefaultLevel);
+    _qlimitSailDepth = qlimit_intPrefValue(kQLimitSailDepthKey, kQLimitDefaultSailDepth);
 }
 
 // ---- The actual control primitive ---------------------------------------
@@ -48,8 +47,6 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
                                                        &_qlimitAssertionID);
         if (result == kIOReturnSuccess) {
             _qlimitChargeInhibited = YES;
-        } else {
-            _qlimitAssertionID = kIOPMNullAssertionID;
         }
     } else {
         if (_qlimitAssertionID != kIOPMNullAssertionID) {
@@ -117,29 +114,27 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
 // ---- Entry point ---------------------------------------------------------
 
 %ctor {
-    @autoreleasepool {
-        qlimit_loadPreferences();
-
-        // The prefs bundle uses the standard Preferences.framework
-        // "PostNotification" specifier key, which posts this Darwin
-        // notification automatically whenever the value is saved.
-        CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(),
-                                         NULL,
-                                         qlimit_preferencesChangedCallback,
-                                         CFSTR(kQLimitPrefsChangedNotification),
-                                         NULL,
-                                         CFNotificationSuspensionBehaviorDeliverImmediately);
-
-        // Fires on plug/unplug and on every percentage tick.
-        CFRunLoopSourceRef runLoopSource =
-            IOPSNotificationCreateRunLoopSource((IOPowerSourceCallbackType)qlimit_powerSourceChangedCallback, NULL);
-        if (runLoopSource) {
-            CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopDefaultMode);
-            CFRelease(runLoopSource);
-        }
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            qlimit_evaluateChargingState();
-        });
+    qlimit_loadPreferences();
+  
+    // The prefs bundle uses the standard Preferences.framework
+    // "PostNotification" specifier key, which posts this Darwin
+    // notification automatically whenever the value is saved.
+    CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(),
+                                     NULL,
+                                     qlimit_preferencesChangedCallback,
+                                     CFSTR(kQLimitPrefsChangedNotification),
+                                     NULL,
+                                     CFNotificationSuspensionBehaviorDeliverImmediately);
+  
+    // Fires on plug/unplug and on every percentage tick.
+    CFRunLoopSourceRef runLoopSource =
+        IOPSNotificationCreateRunLoopSource((IOPowerSourceCallbackType)qlimit_powerSourceChangedCallback, NULL);
+    if (runLoopSource) {
+        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopDefaultMode);
+        CFRelease(runLoopSource);
     }
+  
+    dispatch_async(dispatch_get_main_queue(), ^{
+        qlimit_evaluateChargingState();
+    });
 }
