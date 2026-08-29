@@ -205,9 +205,9 @@ static void qlimit_setupNotification(void) {
                                      NULL,
                                      CFNotificationSuspensionBehaviorDeliverImmediately);
 
+    qlimit_setupNotification();
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        qlimit_setupNotification();
         qlimit_evaluateChargingState();
     });
 }
