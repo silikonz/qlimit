@@ -72,7 +72,7 @@ static void qlimit_loadPreferences(void) {
     _qlimitMaxChargingLevel = qlimit_intPrefValue(kQLimitMaxLevelKey, kQLimitDefaultLevel);
     _qlimitSailDepth = qlimit_intPrefValue(kQLimitSailDepthKey, kQLimitDefaultSailDepth);
 
-    QLog(@"Loaded Preferences: MaxLevel=%d, SailDepth=%d", _qlimitMaxChargingLevel, _qlimitSailDepth);
+    QLog("Loaded Preferences: MaxLevel=%d, SailDepth=%d", _qlimitMaxChargingLevel, _qlimitSailDepth);
 }
 
 // ---- Service Resolver ------------------------------
@@ -90,7 +90,7 @@ static io_service_t qlimit_getPowerService(void) {
 static void qlimit_setChargeInhibited(BOOL inhibited) {
     io_service_t service = qlimit_getPowerService();
     if (!service) {
-        QLog(@"Error: Unable to locate IOKit Power Service!");
+        QLog("Error: Unable to locate IOKit Power Service!");
         return;
     }
 
@@ -102,9 +102,9 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
 
     kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
     if (status == kIOReturnSuccess) {
-        QLog(@"Successfully set charge inhibited = %s (ExternalConnected = %s)", inhibited ? "YES" : "NO", (!inhibited) ? "YES" : "NO");
+        QLog("Successfully set charge inhibited = %s (ExternalConnected = %s)", inhibited ? "YES" : "NO", (!inhibited) ? "YES" : "NO");
     } else {
-        QLog(@"Error writing IOKit properties: 0x%x", status);
+        QLog("Error writing IOKit properties: 0x%x", status);
     }
 
     IOObjectRelease(service);
@@ -115,7 +115,7 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
 static void qlimit_evaluateChargingState(void) {
     io_service_t service = qlimit_getPowerService();
     if (!service) {
-        QLog(@"Error evaluating charging state: No service available.");
+        QLog("Error evaluating charging state: No service available.");
         return;
     }
 
@@ -129,27 +129,27 @@ static void qlimit_evaluateChargingState(void) {
         CFNumberGetValue(capNum, kCFNumberIntType, &capacity);
         CFRelease(capNum);
 
-        QLog(@"Evaluating: PluggedIn=%s, Capacity=%d%%, MaxThreshold=%d%%, ResumeThreshold=%d%%", isPluggedIn ? "YES" : "NO", capacity, _qlimitMaxChargingLevel, (_qlimitMaxChargingLevel - _qlimitSailDepth));
+        QLog("Evaluating: PluggedIn=%s, Capacity=%d%%, MaxThreshold=%d%%, ResumeThreshold=%d%%", isPluggedIn ? "YES" : "NO", capacity, _qlimitMaxChargingLevel, (_qlimitMaxChargingLevel - _qlimitSailDepth));
 
         if (!isPluggedIn) {
-            QLog(@"Device is unplugged. Resetting charge inhibit.");
+            QLog("Device is unplugged. Resetting charge inhibit.");
             qlimit_setChargeInhibited(NO);
         } else if (capacity >= _qlimitMaxChargingLevel) {
-            QLog(@"Max battery limit reached (%d >= %d). Halting charge.", capacity, _qlimitMaxChargingLevel);
+            QLog("Max battery limit reached (%d >= %d). Halting charge.", capacity, _qlimitMaxChargingLevel);
             qlimit_setChargeInhibited(YES);
         } else if (capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) {
-            QLog(@"Sailing threshold reached (%d <= %d). Resuming charge.", capacity, (_qlimitMaxChargingLevel - _qlimitSailDepth));
+            QLog("Sailing threshold reached (%d <= %d). Resuming charge.", capacity, (_qlimitMaxChargingLevel - _qlimitSailDepth));
             qlimit_setChargeInhibited(NO);
         }
     } else {
-        QLog(@"Failed to read CurrentCapacity from IOKit service.");
+        QLog("Failed to read CurrentCapacity from IOKit service.");
     }
 }
 
 // ---- Callbacks ---------------------------------------------------------
 
 static void qlimit_powerSourceChangedCallback(void *refcon, io_service_t service, uint32_t messageType, void *messageArgument) {
-    QLog(@"IOKit Power Source Changed Event Fired.");
+    QLog("IOKit Power Source Changed Event Fired.");
     qlimit_evaluateChargingState();
 }
 
@@ -158,7 +158,7 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
                                                CFStringRef name,
                                                const void *object,
                                                CFDictionaryRef userInfo) {
-    QLog(@"Darwin notification received: Preferences changed.");
+    QLog("Darwin notification received: Preferences changed.");
     qlimit_loadPreferences();
     qlimit_evaluateChargingState();
 }
@@ -168,7 +168,7 @@ static void qlimit_preferencesChangedCallback(CFNotificationCenterRef center,
 static void qlimit_setupIOKitNotification(void) {
     gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
     if (!gNotifyPort) {
-        QLog(@"Failed to create IONotificationPort!");
+        QLog("Failed to create IONotificationPort!");
         return;
     }
 
@@ -186,7 +186,7 @@ static void qlimit_setupIOKitNotification(void) {
             &gPowerNotification
         );
         IOObjectRelease(serv);
-        QLog(@"Successfully registered IOKit power interest notification listener.");
+        QLog("Successfully registered IOKit power interest notification listener.");
     }
 }
 
