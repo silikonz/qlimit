@@ -85,6 +85,7 @@ static io_service_t qlimit_getPowerService(void) {
     if (serv == IO_OBJECT_NULL) {
         serv = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
     }
+    return serv;
 }
 
 // ---- Control Primitives --------------------------------------------------
