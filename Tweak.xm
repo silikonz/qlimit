@@ -13,11 +13,12 @@
 #define kQLimitDefaultSailDepth         5
 
 
+#import <os/log.h>
 #define QLIMIT_DEBUG 1
 #if QLIMIT_DEBUG
     #define QLog(fmt, ...) \
         do { \
-            NSLog(@"[QLimit] " fmt, ##__VA_ARGS__); \
+            os_log_error(OS_LOG_DEFAULT, "[QLimit] " fmt, ##__VA_ARGS__); \
         } while (0)
 #else
     #define QLog(fmt, ...) do {} while (0)
