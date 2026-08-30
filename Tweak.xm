@@ -136,7 +136,7 @@ static void qlimit_evaluateChargingState(void) {
             if ((capacity >= _qlimitMaxChargingLevel) && isCharging) {
                 QLog("Max battery limit reached (%d >= %d). Halting charge.", capacity, _qlimitMaxChargingLevel);
                 qlimit_setChargeInhibited(YES);
-            } else if ((capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) && !isCharging) {
+            } else if ((capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) && _qlimitChargeInhibited && !isCharging) {
                 QLog("Sailing threshold reached (%d <= %d). Resuming charge.", capacity, (_qlimitMaxChargingLevel - _qlimitSailDepth));
                 qlimit_setChargeInhibited(NO);
             }
