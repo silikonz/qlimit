@@ -8,7 +8,7 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = qlimit
 
-qlimit_FILES = Tweak.xm
+qlimit_FILES = Tweak.xm libsmc.c
 qlimit_CFLAGS = -fobjc-arc
 qlimit_FRAMEWORKS = Foundation CoreFoundation IOKit
 
