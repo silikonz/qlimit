@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <IOKit/IOKitLib.h>
 #import <IOKit/ps/IOPowerSources.h>
+#import "libsmc.h"
 
 extern "C" void IONotificationPortSetDispatchQueue(IONotificationPortRef notifyPort, dispatch_queue_t queue);
 
@@ -92,27 +93,16 @@ static io_service_t qlimit_getPowerService(void) {
 
 // ---- Control Primitives --------------------------------------------------
 
-static BOOL qlimit_isChargeInhibited(io_service_t service) {
-    NSDictionary *chargerData = qlimit_getProperty(service, CFSTR("ChargerData"));
-    if ([chargerData isKindOfClass:[NSDictionary class]]) {
-        return ([chargerData[@"NotChargingReason"] unsignedIntegerValue] & 0x4000) != 0; //see https://battman-docs.torrekie.com/troubleshooting/battery-info/not-charging-reason/
-    }
-    return NO;
+static BOOL qlimit_isChargeInhibited() {
+    uint8_t val = 0;
+    int32_t sz = sizeof(val);
+    if (smc_read_safe('CH0I', &val, &sz) != kIOReturnSuccess) return NO;
+    return val != 0;
 }
 static void qlimit_setChargeInhibited(BOOL inhibited) {
-    io_service_t service = qlimit_getPowerService();
-    if (!service) {
-        QLog("Error: Unable to locate IOKit Power Service!");
-        return;
-    }
-
-    NSDictionary *props = @{
-        @"IsCharging": inhibited ? @NO : @YES,
-        //@"PredictiveChargingInhibit": inhibited ? @YES : @NO,
-    };
-
-    __attribute__((unused)) kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
-    QLog("Writing IOKit properties status 0x%x, inhibited = %s", status, inhibited ? "YES" : "NO");
+    uint8_t val = inhibited ? 1 : 0;
+    IOReturn status = smc_write_safe('CH0I', &val, 1);
+    QLog("smc_write_safe(CH0I) status 0x%x, inhibited = %s", status, inhibited ? "YES" : "NO");
 }
 
 // ---- Decision logic ---------------------------------------------------------
@@ -130,7 +120,7 @@ static void qlimit_evaluateChargingState(void) {
     if (capNum) {
         int capacity = [capNum intValue];
 
-        BOOL isInhibited = qlimit_isChargeInhibited(service);
+        BOOL isInhibited = qlimit_isChargeInhibited();
 
         QLog("Evaluating: PluggedIn=%s, Capacity=%d%%, Inhibited=%s, MaxThreshold=%d%%, ResumeThreshold=%d%%", isPluggedIn ? "YES" : "NO", capacity, isInhibited ? "YES" : "NO", _qlimitMaxChargingLevel, (_qlimitMaxChargingLevel - _qlimitSailDepth));
         
@@ -201,6 +191,8 @@ static void qlimit_setupNotification(void) {
 // ---- Entry point ---------------------------------------------------------
 
 %ctor {
+    smc_open();
+    
     qlimit_loadPreferences();
 
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(),
