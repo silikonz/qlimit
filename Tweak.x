@@ -96,13 +96,13 @@ static io_service_t qlimit_getPowerService(void) {
 static BOOL qlimit_isChargeInhibited() {
     uint8_t val = 0;
     int32_t sz = sizeof(val);
-    if (smc_read_safe('CH0I', &val, &sz) != kIOReturnSuccess) return NO;
+    if (smc_read_safe('CH0C', &val, &sz) != kIOReturnSuccess) return NO;
     return val != 0;
 }
 static void qlimit_setChargeInhibited(BOOL inhibited) {
     uint8_t val = inhibited ? 1 : 0;
-    __attribute__((unused)) IOReturn status = smc_write_safe('CH0I', &val, 1);
-    QLog("smc_write_safe(CH0I) status 0x%x, inhibited = %s", status, inhibited ? "YES" : "NO");
+    __attribute__((unused)) IOReturn status = smc_write_safe('CH0C', &val, 1);
+    QLog("smc_write_safe status 0x%x, inhibited = %s", status, inhibited ? "YES" : "NO");
 }
 
 // ---- Decision logic ---------------------------------------------------------
