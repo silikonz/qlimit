@@ -183,7 +183,7 @@ IOReturn smc_read_safe(uint32_t key, void *bytes, int32_t *size) {
         *size = -(*size);
         omit_mismatch_warning = 1;
     }
-    uint32_t loggedKey = htonl(key);
+    __attribute__((unused)) uint32_t loggedKey = htonl(key);
     if (*size < inputStruct.param.keyInfo.dataSize) {
         DBGLOG("smc_read_safe %.4s WARNING: buffer too short: buf len %d; has %d; will truncate",
                (char *)&loggedKey, *size, inputStruct.param.keyInfo.dataSize);
