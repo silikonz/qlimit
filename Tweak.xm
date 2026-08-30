@@ -95,7 +95,7 @@ static io_service_t qlimit_getPowerService(void) {
 static BOOL qlimit_isChargeInhibited(io_service_t service) {
     NSDictionary *chargerData = qlimit_getProperty(service, CFSTR("ChargerData"));
     if ([chargerData isKindOfClass:[NSDictionary class]]) {
-        return ([chargerData[@"NotChargingReason"] unsignedIntegerValue] & 0x8000) != 0; //see https://battman-docs.torrekie.com/troubleshooting/battery-info/not-charging-reason/
+        return ([chargerData[@"NotChargingReason"] unsignedIntegerValue] & 0x4000) != 0; //see https://battman-docs.torrekie.com/troubleshooting/battery-info/not-charging-reason/
     }
     return NO;
 }
@@ -107,8 +107,8 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
     }
 
     NSDictionary *props = @{
-        //@"IsCharging": inhibited ? @NO : @YES,
-        @"PredictiveChargingInhibit": inhibited ? @YES : @NO,
+        @"IsCharging": inhibited ? @NO : @YES,
+        //@"PredictiveChargingInhibit": inhibited ? @YES : @NO,
     };
 
     __attribute__((unused)) kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
