@@ -48,11 +48,11 @@ static id qlimit_getProperty(io_service_t service, CFStringRef key) {
 }
 
 static BOOL qlimit_isAdapterConnected(io_service_t service) {
-    NSDictionary *details = qlimit_getProperty(service, CFSTR("AdapterDetails"));
+    /*NSDictionary *details = qlimit_getProperty(service, CFSTR("AdapterDetails"));
     if (details) {
         NSString *desc = details[@"Description"];
         return (desc && ![desc isEqualToString:@"orion"]);
-    }
+    }*/
     
     // Fallback if AdapterDetails is nil (e.g., standard 5W chargers / older devices)
     NSNumber *chargeCapable = qlimit_getProperty(service, CFSTR("ExternalChargeCapable"));
