@@ -1,6 +1,5 @@
 // libsmc.c
 
-#import <Foundation/Foundation.h>
 #include <IOKit/IOKitLib.h>
 #include <mach/mach.h>
 
