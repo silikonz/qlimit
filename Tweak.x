@@ -101,7 +101,7 @@ static BOOL qlimit_isChargeInhibited() {
 }
 static void qlimit_setChargeInhibited(BOOL inhibited) {
     uint8_t val = inhibited ? 1 : 0;
-    IOReturn status = smc_write_safe('CH0I', &val, 1);
+    __attribute__((unused)) IOReturn status = smc_write_safe('CH0I', &val, 1);
     QLog("smc_write_safe(CH0I) status 0x%x, inhibited = %s", status, inhibited ? "YES" : "NO");
 }
 
