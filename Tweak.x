@@ -3,7 +3,7 @@
 #import <IOKit/ps/IOPowerSources.h>
 #import "libsmc.h"
 
-extern "C" void IONotificationPortSetDispatchQueue(IONotificationPortRef notifyPort, dispatch_queue_t queue);
+extern void IONotificationPortSetDispatchQueue(IONotificationPortRef notifyPort, dispatch_queue_t queue);
 
 // ---- Config ----------------------------------------------------------
 
