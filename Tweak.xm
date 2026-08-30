@@ -16,7 +16,7 @@ static const int kQLimitDefaultLevel     = 80;
 static const int kQLimitDefaultSailDepth = 5;
 
 
-#define QLIMIT_DEBUG 0
+#define QLIMIT_DEBUG 1
 #if QLIMIT_DEBUG
     #define QLog(fmt, ...) \
         do { \
