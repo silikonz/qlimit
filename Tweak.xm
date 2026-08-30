@@ -16,7 +16,7 @@ static const int kQLimitDefaultLevel     = 80;
 static const int kQLimitDefaultSailDepth = 5;
 
 
-#define QLIMIT_DEBUG 1
+#define QLIMIT_DEBUG 0
 #if QLIMIT_DEBUG
     #define QLog(fmt, ...) \
         do { \
@@ -34,6 +34,7 @@ static const int kQLimitDefaultSailDepth = 5;
 
 static int _qlimitMaxChargingLevel = kQLimitDefaultLevel;
 static int _qlimitSailDepth = kQLimitDefaultSailDepth;
+static BOOL _qlimitChargeInhibited = NO;
 
 static IONotificationPortRef gNotifyPort = NULL;
 static io_object_t gPowerNotification = IO_OBJECT_NULL;
@@ -92,10 +93,6 @@ static io_service_t qlimit_getPowerService(void) {
 
 // ---- Control Primitives --------------------------------------------------
 
-static BOOL qlimit_isChargeInhibited(io_service_t service) {
-    NSNumber *val = qlimit_getProperty(service, CFSTR("PredictiveChargingInhibit"));
-    return val ? [val boolValue] : NO;
-}
 static void qlimit_setChargeInhibited(BOOL inhibited) {
     io_service_t service = qlimit_getPowerService();
     if (!service) {
@@ -108,7 +105,10 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
         @"PredictiveChargingInhibit": inhibited ? @YES : @NO,
     };
 
-    __attribute__((unused)) kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
+    kern_return_t status = IORegistryEntrySetCFProperties(service, (__bridge CFDictionaryRef)props);
+    if (status == kIOReturnSuccess) {
+        _qlimitChargeInhibited = inhibited;
+    }
     QLog("Writing IOKit properties status 0x%x, inhibited = %s", status, inhibited ? "YES" : "NO");
 }
 
@@ -127,20 +127,21 @@ static void qlimit_evaluateChargingState(void) {
     if (capNum) {
         int capacity = [capNum intValue];
 
-        BOOL isInhibited = qlimit_isChargeInhibited(service);
+        NSNumber *isChargingVal = qlimit_getProperty(service, CFSTR("IsCharging"));
+        BOOL isCharging = isChargingVal ? [isChargingVal boolValue] : NO;
 
-        QLog("Evaluating: PluggedIn=%s, Capacity=%d%%, Inhibited=%s, MaxThreshold=%d%%, ResumeThreshold=%d%%", isPluggedIn ? "YES" : "NO", capacity, isInhibited ? "YES" : "NO", _qlimitMaxChargingLevel, (_qlimitMaxChargingLevel - _qlimitSailDepth));
+        QLog("Evaluating: PluggedIn=%s, Capacity=%d%%, Inhibited=%s, MaxThreshold=%d%%, ResumeThreshold=%d%%", isPluggedIn ? "YES" : "NO", capacity, _qlimitChargeInhibited ? "YES" : "NO", _qlimitMaxChargingLevel, (_qlimitMaxChargingLevel - _qlimitSailDepth));
         
         if (isPluggedIn) {
-            if ((capacity >= _qlimitMaxChargingLevel) && !isInhibited) {
+            if ((capacity >= _qlimitMaxChargingLevel) && isCharging) {
                 QLog("Max battery limit reached (%d >= %d). Halting charge.", capacity, _qlimitMaxChargingLevel);
                 qlimit_setChargeInhibited(YES);
-            } else if ((capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) && isInhibited) {
+            } else if ((capacity <= (_qlimitMaxChargingLevel - _qlimitSailDepth)) && !isCharging) {
                 QLog("Sailing threshold reached (%d <= %d). Resuming charge.", capacity, (_qlimitMaxChargingLevel - _qlimitSailDepth));
                 qlimit_setChargeInhibited(NO);
             }
         } else { //not plugged in
-            if (isInhibited) {
+            if (_qlimitChargeInhibited) {
                 QLog("Device is unplugged. Resetting charge inhibit.");
                 qlimit_setChargeInhibited(NO);
             }
