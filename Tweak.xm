@@ -50,7 +50,7 @@ static BOOL qlimit_isAdapterConnected(io_service_t service) {
     NSDictionary *details = qlimit_getProperty(service, CFSTR("AdapterDetails"));
     if (details) {
         NSString *desc = details[@"Description"];
-        return (desc && ![desc isEqualToString:@"batt"]);
+        return (desc && ![desc isEqualToString:@"orion"]);
     }
     
     // Fallback if AdapterDetails is nil (e.g., standard 5W chargers / older devices)
