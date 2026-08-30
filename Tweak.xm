@@ -101,7 +101,7 @@ static void qlimit_setChargeInhibited(BOOL inhibited) {
     }
 
     NSDictionary *props = @{
-        //@"IsCharging": inhibited ? @NO : @YES,
+        @"IsCharging": @YES,
         @"PredictiveChargingInhibit": inhibited ? @YES : @NO,
     };
 
